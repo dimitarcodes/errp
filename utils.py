@@ -3,17 +3,44 @@ import mne
 import numpy as np
 
 
-def load_preprocess_matlab_data(file_path, l_freq=1.0, h_freq=20.0, re_fs=64, tmin=-0.1, tmax=0.85):
-    """
-    Load MATLAB data from a .mat file and convert it to MNE Raw object.
+def get_info_mat(file_path):
+    print(f'loading file {file_path}')
+    # Load the .mat file
+    mat_raw = loadmat(file_path, simplify_cells=1)
+    mat_data = mat_raw['run']
+    trial = mat_data[0]
 
-    Parameters:
-    file_path (str): Path to the .mat file.
+    header = trial['header']
+    sfreq = header['SampleRate']
 
-    Returns:
-    mne.io.Raw: MNE Raw object containing the data.
+    # remove status channel - irrelevant as not present in data
+    ch_names = list(header['Label'][:-1])
+    ch_types = ['eeg'] * len(ch_names)
+
+    info = mne.create_info(ch_names=ch_names, sfreq=sfreq, ch_types=ch_types)
+    info.set_montage("standard_1020")
+
+    return info
+
+def load_preprocess_matlab_data(file_path, l_freq=1.0, h_freq=10.0, re_fs=64, tmin=-0.1, tmax=0.85):
     """
-    
+    Reads a mat file containing data from experimental session.
+
+    Assumes mat files have the following contents:
+
+    run{idx}.eeg        raw EEG data (n_samples x n_channels) 
+    run{idx}.header     metadata
+
+    header.Subject      subject number
+    header.Session      Session number
+    header.SampleRate   Recording sampling rate
+    header.Label        Electrode labels
+    header.EVENT        Recording events
+
+    header.EVENT.POS    Position of event
+    header.EVENT.TYP    Type of event
+
+    """
     
     print(f'loading file {file_path}')
     # Load the .mat file
@@ -24,10 +51,14 @@ def load_preprocess_matlab_data(file_path, l_freq=1.0, h_freq=20.0, re_fs=64, tm
     for trial in mat_data:
 
         # extract trial data and metadata
+
+        # data comes in (samples x channels) shape
         eegdata = trial['eeg'].transpose()
         header = trial['header']
 
         sfreq = header['SampleRate']
+
+        # remove status channel - irrelevant as not present in data
         ch_names = list(header['Label'][:-1])
         ch_types = ['eeg'] * len(ch_names)
 
@@ -52,19 +83,8 @@ def load_preprocess_matlab_data(file_path, l_freq=1.0, h_freq=20.0, re_fs=64, tm
         decimfactor = sfreq / re_fs
         epoch = mne.Epochs(raw=filtdata, events = eventsarr, tmin=tmin, tmax=tmax, decim=decimfactor, preload=True)      
         epochs_list.append(epoch)
+
     # Concatenate all epochs into a single Raw object
     epochs = mne.concatenate_epochs(epochs_list)
 
-    return epochs
-
-def load_session(session=1, subjects=[1,2,3,4,5,6]):
-    datafiles = [
-        f"data/sub%02d_ses%d.mat" % (subject, session) for subject in subjects
-    ]
-
-    epochs_list = []
-    for fpath in datafiles:
-        epochs_list.append(load_preprocess_matlab_data(fpath))
-    
-    epochs = mne.concatenate_epochs(epochs_list)
     return epochs
