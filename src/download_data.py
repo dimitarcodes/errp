@@ -1,9 +1,15 @@
 import requests, os, sys
 from pathlib import Path
 
-# function that downloads 22. Monitoring error-related potentials (013-2015) data
-# from https://bnci-horizon-2020.eu/database/data-sets
 def download_data(target_folder='data'):
+    """Downloads the 22. Monitoring error-related potentials (013-2015) dataset from the BNCI Horizon 2020 database.
+    URL: https://bnci-horizon-2020.eu/database/data-sets
+    
+    Parameters
+    ----------
+    target_folder : str, optional
+        The folder where the dataset will be saved. Defaults to 'data'.
+    """
     target_folderpath = Path(target_folder)
 
     # create data directory if it doesn't exist
